@@ -1,6 +1,7 @@
 //
 // Created by gd1 on 07.09.2019.
 //
+#pragma once
 
 #include <iostream>
 #include <fstream>

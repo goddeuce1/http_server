@@ -61,4 +61,3 @@ size_t HTTPConfig::getThreadLimit() {
 size_t HTTPConfig::getPort() {
     return port;
 }
-

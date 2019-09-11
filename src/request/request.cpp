@@ -14,7 +14,9 @@
 #include "request.h"
 #include <regex>
 
-HTTPRequest::HTTPRequest() {
+HTTPRequest::HTTPRequest(std::shared_ptr<HTTPConnection> connection) :
+connection_(std::move(connection))
+{
     params["Method"] = "";
     params["Path"] = "";
     params["File"] = "";
@@ -26,6 +28,7 @@ void HTTPRequest::parseRequest(std::string request) {
     std::regex reg_param(R"(^(\S+)\:\s(\S+)$)", std::regex_constants::icase | std::regex_constants::ECMAScript);
 
     size_t i = 0;
+    params["Path"] = connection_->getServer()->getDocRoot();
 
     do {
         size_t newline_position = request.find_first_of('\n', i);
@@ -37,7 +40,7 @@ void HTTPRequest::parseRequest(std::string request) {
 
         if (std::regex_match(request_body, match, reg_body)) {
             params["Method"] = match[1];
-            params["Path"] = match[2];
+            params["Path"] += match[2];
             params["File"] = match[5];
             params["HTTP"] = match[13];
         }
@@ -53,6 +56,8 @@ void HTTPRequest::parseRequest(std::string request) {
     if (!params["File"].empty()) {
         params["File"] = decodeUrl(params["File"]);
     }
+
+    std::cout << params["Path"] << std::endl;
 }
 
 std::string HTTPRequest::decodeUrl(std::string input) {
@@ -85,4 +90,3 @@ std::string HTTPRequest::decodeUrl(std::string input) {
     }
     return result;
 }
-

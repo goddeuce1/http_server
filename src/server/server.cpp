@@ -3,6 +3,7 @@
 //
 
 #include "server.h"
+#include "../connection/connection.h"
 #include "boost/bind.hpp"
 #include <thread>
 
@@ -17,8 +18,6 @@ HTTPServer::HTTPServer(HTTPConfig *cfg) :
     document_root = cfg->getDocumentRoot();
     cpu_limit = cfg->getCPULimit();
     thread_limit = cfg->getThreadLimit();
-
-    serverStart();
 }
 
 void HTTPServer::serverStart() {
@@ -31,25 +30,20 @@ void HTTPServer::serverStart() {
 }
 
 void HTTPServer::serverListen() {
-    auto new_connection = std::make_shared<HTTPConnection>(io_service_);
+    auto new_connection = std::make_shared<HTTPConnection>(io_service_, shared_from_this());
     acceptor_.async_accept(
             new_connection->getSocket(),
-            boost::bind(
-                    &HTTPServer::handleConnection,
-                    this,
-                    new_connection,
-                    boost::asio::placeholders::error
-                    ));
+            [this, new_connection](boost::system::error_code error) {
+                    if (!error) {
+                        new_connection->startProcessing();
+                    } else {
+                        std::cout << error.message() << " " << error.value() << std::endl;
+                    }
+                    serverListen();
+            }
+    );
 }
 
-void HTTPServer::handleConnection(std::shared_ptr<HTTPConnection> connection, boost::system::error_code error) {
-    if (!error) {
-        connection->startProcessing();
-    } else {
-        std::cout << error.message() << " " << error.value() << std::endl;
-    }
-    serverListen();
+std::string HTTPServer::getDocRoot() {
+    return document_root;
 }
-
-
-
