@@ -1,6 +1,7 @@
 //
 // Created by gd1 on 08.09.2019.
 //
+#pragma once
 
 #include "../connection/connection.h"
 #include "boost/asio.hpp"
@@ -14,12 +15,24 @@
 
 class HTTPRequest : public std::enable_shared_from_this<HTTPRequest> {
 public:
-    explicit HTTPRequest(std::shared_ptr<HTTPConnection> connection);
+    explicit HTTPRequest(std::shared_ptr<HTTPConnection>);
     //~HTTPRequest();
-    void parseRequest(std::string request);
-    std::string decodeUrl(std::string input);
+    void parseRequest(std::string);
+    static std::string decodeUrl(std::string);
+
+public:
+    std::shared_ptr<HTTPConnection> getConnection();
+    std::unordered_map<std::string, std::string> getHeaders();
+    std::string getMethod();
+    std::string getPath();
+    std::string getFile();
+    std::string getVersion();
 
 private:
-    std::unordered_map<std::string, std::string> params;
     std::shared_ptr<HTTPConnection> connection_;
+    std::unordered_map<std::string, std::string> request_headers;
+    std::string request_method;
+    std::string request_path;
+    std::string request_file;
+    std::string request_version;
 };

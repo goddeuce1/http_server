@@ -18,6 +18,8 @@ HTTPServer::HTTPServer(HTTPConfig *cfg) :
     document_root = cfg->getDocumentRoot();
     cpu_limit = cfg->getCPULimit();
     thread_limit = cfg->getThreadLimit();
+
+    server_name = "gdinx v1.0.0";
 }
 
 void HTTPServer::serverStart() {
@@ -46,4 +48,8 @@ void HTTPServer::serverListen() {
 
 std::string HTTPServer::getDocRoot() {
     return document_root;
+}
+
+std::string HTTPServer::getName() {
+    return server_name;
 }

@@ -17,8 +17,12 @@ public:
     explicit HTTPServer(HTTPConfig* cfg);
     //~HTTPServer();
     void serverStart();
-    std::string getDocRoot();
     //void serverStop();
+
+public:
+    std::string getDocRoot();
+    std::string getName();
+
 
 private:
     void serverListen();
@@ -28,6 +32,7 @@ private:
     boost::asio::ip::tcp::acceptor acceptor_;
     boost::thread_group thread_group_;
     std::string document_root;
+    std::string server_name;
     size_t cpu_limit;
     size_t thread_limit;
 };

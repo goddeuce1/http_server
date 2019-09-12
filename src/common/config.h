@@ -16,6 +16,8 @@ public:
     HTTPConfig();
     ~HTTPConfig();
     void parseConfig();
+
+public:
     std::string getPath();
     std::string getDocumentRoot();
     size_t getCPULimit();

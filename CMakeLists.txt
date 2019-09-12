@@ -14,7 +14,7 @@ if(Boost_FOUND)
 
 endif()
 
-add_executable(http-server src/main.cpp src/server/server.h src/common/config.h src/common/config.cpp src/server/server.cpp src/connection/connection.h src/connection/connection.cpp src/request/request.h src/request/request.cpp)
+add_executable(http-server src/main.cpp src/server/server.h src/common/config.h src/common/config.cpp src/server/server.cpp src/connection/connection.h src/connection/connection.cpp src/request/request.h src/request/request.cpp src/response/response.h src/response/response.cpp)
 
 if(Boost_FOUND)
 

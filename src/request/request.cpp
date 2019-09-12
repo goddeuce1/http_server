@@ -12,15 +12,16 @@
 //match[13] - http with version
 
 #include "request.h"
+#include "../response/response.h"
 #include <regex>
 
 HTTPRequest::HTTPRequest(std::shared_ptr<HTTPConnection> connection) :
 connection_(std::move(connection))
 {
-    params["Method"] = "";
-    params["Path"] = "";
-    params["File"] = "";
-    params["HTTP"] = "";
+    request_method = "";
+    request_path = "";
+    request_file = "index.html";
+    request_version = "";
 }
 
 void HTTPRequest::parseRequest(std::string request) {
@@ -28,7 +29,7 @@ void HTTPRequest::parseRequest(std::string request) {
     std::regex reg_param(R"(^(\S+)\:\s(\S+)$)", std::regex_constants::icase | std::regex_constants::ECMAScript);
 
     size_t i = 0;
-    params["Path"] = connection_->getServer()->getDocRoot();
+    request_path = connection_->getServer()->getDocRoot();
 
     do {
         size_t newline_position = request.find_first_of('\n', i);
@@ -39,25 +40,26 @@ void HTTPRequest::parseRequest(std::string request) {
         std::smatch match;
 
         if (std::regex_match(request_body, match, reg_body)) {
-            params["Method"] = match[1];
-            params["Path"] += match[2];
-            params["File"] = match[5];
-            params["HTTP"] = match[13];
+            request_method = match[1];
+            request_path += match[2];
+            request_file = match[5];
+            request_version = match[13];
         }
 
         if (std::regex_match(request_body, match, reg_param)) {
-            params[match[1]] = match[2];
+            request_headers[match[1]] = match[2];
         }
 
         i = newline_position + 1;
 
     } while (request[i] != '\r');
 
-    if (!params["File"].empty()) {
-        params["File"] = decodeUrl(params["File"]);
+    if (!request_file.empty()) {
+        request_file = decodeUrl(request_file);
     }
 
-    std::cout << params["Path"] << std::endl;
+    HTTPResponse response(shared_from_this());
+    response.startProcessing();
 }
 
 std::string HTTPRequest::decodeUrl(std::string input) {
@@ -89,4 +91,28 @@ std::string HTTPRequest::decodeUrl(std::string input) {
         }
     }
     return result;
+}
+
+std::shared_ptr<HTTPConnection> HTTPRequest::getConnection() {
+    return connection_;
+}
+
+std::unordered_map<std::string, std::string> HTTPRequest::getHeaders() {
+    return request_headers;
+}
+
+std::string HTTPRequest::getMethod() {
+    return request_method;
+}
+
+std::string HTTPRequest::getPath() {
+    return request_path;
+}
+
+std::string HTTPRequest::getFile() {
+    return request_file;
+}
+
+std::string HTTPRequest::getVersion() {
+    return request_version;
 }

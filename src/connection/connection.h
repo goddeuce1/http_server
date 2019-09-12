@@ -15,15 +15,17 @@
 
 class HTTPConnection : public std::enable_shared_from_this<HTTPConnection> {
 public:
-    explicit HTTPConnection(boost::asio::io_service& io_service, std::shared_ptr<HTTPServer> server);
+    explicit HTTPConnection(boost::asio::io_service&, std::shared_ptr<HTTPServer>);
     //~HTTPConnection();
+    void startProcessing();
+    void readHandler(boost::system::error_code, size_t);
+
+public:
     boost::asio::ip::tcp::socket& getSocket();
     std::shared_ptr<HTTPServer> getServer();
-    void startProcessing();
-    void someHandler(boost::system::error_code error, size_t bytes_transferred);
 
 private:
-    boost::asio::ip::tcp::socket socket_;
     std::shared_ptr<HTTPServer> server_;
+    boost::asio::ip::tcp::socket socket_;
     boost::asio::streambuf buf;
 };
