@@ -10,26 +10,29 @@
 
 #endif //HTTP_SERVER_RESPONSE_H
 
-class HTTPResponse {
+class HTTPResponse : public std::enable_shared_from_this<HTTPResponse>  {
 public:
     explicit HTTPResponse(std::shared_ptr<HTTPRequest>);
     //~HTTPResponse();
     void startProcessing();
-    void processGetMethod();
-    void processHeadMethod();
+    void processMethod();
     void processUnknownMethod();
 
 public:
     static std::string getDate();
+    static std::string getContentType(std::string&);
+    bool isFileSend();
 
 private:
-    void writeHeaders(std::string&);
+    void writeHeaders(std::string&, std::string&);
     void writeToClient();
+    void sendFile();
 
 private:
     std::shared_ptr<HTTPRequest> request_;
-    std::stringstream buffer;
     std::string response_code;
-    std::vector<char> response_file;
     std::unordered_map<std::string, std::string> response_headers;
+    std::ostream ostream_to_buffer;
+    boost::asio::streambuf response_buffer;
+    bool is_sent;
 };

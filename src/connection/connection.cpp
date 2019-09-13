@@ -29,7 +29,7 @@ void HTTPConnection::startProcessing() {
 
 void HTTPConnection::readHandler(boost::system::error_code error, size_t bytes_transferred) {
     if (error || bytes_transferred == 0) {
-        std::cout << error.message() << " " << error.value() << " (empty lines/without to newlines)" << std::endl;
+        //std::cout << error.message() << " " << error.value() << " (empty lines/without to newlines)" << std::endl;
     } else {
         std::string data = boost::asio::buffer_cast<const char *>(buf.data());
         auto request = std::make_shared<HTTPRequest>(shared_from_this());

@@ -5,27 +5,25 @@
 //match[0] - request
 //match[1] - method
 //match[2] - full path
-//match[5] - item name
-//match[8] - args with ?
-//match[9] - ?
-//match[10] - args without ?
+//match[6] - item name +?args
 //match[13] - http with version
 
 #include "request.h"
 #include "../response/response.h"
 #include <regex>
+#include <chrono>
+#include <thread>
 
 HTTPRequest::HTTPRequest(std::shared_ptr<HTTPConnection> connection) :
 connection_(std::move(connection))
 {
     request_method = "";
     request_path = "";
-    request_file = "index.html";
     request_version = "";
 }
 
 void HTTPRequest::parseRequest(std::string request) {
-    std::regex reg_body(R"(^(\w+)\s(\/((\S+\/)*)?)((\S+\.\w+)|(\%\w{2})*)?((\?)((\S+\=\S+(\&)?)*))?\s(HTTP\/1\.[01])$)", std::regex_constants::icase | std::regex_constants::ECMAScript);
+    std::regex reg_body(R"(^(\w+)\s(\/((\S+\/)*)?)((\S+)|(\%\w{2})*)?((\?)((\S+\=\S+(\&)?)*))?\s(HTTP\/1\.[01])$)", std::regex_constants::icase | std::regex_constants::ECMAScript);
     std::regex reg_param(R"(^(\S+)\:\s(\S+)$)", std::regex_constants::icase | std::regex_constants::ECMAScript);
 
     size_t i = 0;
@@ -42,7 +40,7 @@ void HTTPRequest::parseRequest(std::string request) {
         if (std::regex_match(request_body, match, reg_body)) {
             request_method = match[1];
             request_path += match[2];
-            request_file = match[5];
+            request_file = match[6];
             request_version = match[13];
         }
 
@@ -54,12 +52,22 @@ void HTTPRequest::parseRequest(std::string request) {
 
     } while (request[i] != '\r');
 
-    if (!request_file.empty()) {
-        request_file = decodeUrl(request_file);
+    size_t args_pos = request_file.find_first_of('?');
+
+    if (args_pos != std::string::npos) {
+        request_file = request_file.substr(0, args_pos);
     }
 
-    HTTPResponse response(shared_from_this());
-    response.startProcessing();
+    if (!request_file.empty()) {
+        request_file = decodeUrl(request_file);
+    } else {
+        request_file = "index.html";
+    }
+
+    auto response = std::make_shared<HTTPResponse>(shared_from_this());
+    response->startProcessing();
+
+    while (!response->isFileSend()) {}
 }
 
 std::string HTTPRequest::decodeUrl(std::string input) {
