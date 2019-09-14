@@ -12,8 +12,6 @@ HTTPResponse::HTTPResponse(std::shared_ptr<HTTPRequest> request) :
         response_headers["Server"] = request_->getConnection()->getServer()->getName();
         response_headers["Date"] = getDate();
         response_headers["Connection"] = "Closed";
-
-        is_sent = false;
     }
 
 void HTTPResponse::startProcessing() {
@@ -82,17 +80,18 @@ void HTTPResponse::sendFile() {
 }
 
 void HTTPResponse::writeToClient() {
+    auto self = shared_from_this();
+
     boost::asio::async_write(
             request_->getConnection()->getSocket(),
             response_buffer,
-            [this](const boost::system::error_code& error, size_t bytes_transferred) {
+            [this, self](const boost::system::error_code& error, size_t bytes_transferred) {
                 if (error) {
                     std::cout << error.message() << " || " << error.value() << " || " << response_code << std::endl;
                     return;
                 }
 
                 std::cout << "bytes transferred: " << bytes_transferred << std::endl;
-                is_sent = true;
             }
     );
 }
@@ -117,8 +116,4 @@ std::string HTTPResponse::getContentType(std::string& extension) {
     if (extension == "txt") return "text/plain";
 
     return "";
-}
-
-bool HTTPResponse::isFileSend() {
-    return is_sent;
 }

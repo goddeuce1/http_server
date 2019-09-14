@@ -2,12 +2,6 @@
 // Created by gd1 on 08.09.2019.
 //
 
-//match[0] - request
-//match[1] - method
-//match[2] - full path
-//match[6] - item name +?args
-//match[13] - http with version
-
 #include "request.h"
 #include "../response/response.h"
 #include <regex>
@@ -64,8 +58,6 @@ void HTTPRequest::parseRequest(std::string request) {
 
     auto response = std::make_shared<HTTPResponse>(shared_from_this());
     response->startProcessing();
-
-    while (!response->isFileSend()) {}
 }
 
 std::string HTTPRequest::decodeUrl(std::string input) {

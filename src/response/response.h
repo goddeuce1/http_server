@@ -21,7 +21,6 @@ public:
 public:
     static std::string getDate();
     static std::string getContentType(std::string&);
-    bool isFileSend();
 
 private:
     void writeHeaders(std::string&, std::string&);
@@ -34,5 +33,4 @@ private:
     std::unordered_map<std::string, std::string> response_headers;
     std::ostream ostream_to_buffer;
     boost::asio::streambuf response_buffer;
-    bool is_sent;
 };

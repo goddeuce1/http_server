@@ -20,8 +20,6 @@ HTTPServer::HTTPServer(HTTPConfig *cfg) :
     thread_limit = cfg->getThreadLimit();
 
     server_name = "gdinx v1.0.0";
-
-    std::cout << "server is up\n";
 }
 
 HTTPServer::~HTTPServer() {

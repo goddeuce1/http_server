@@ -23,7 +23,6 @@ public:
     std::string getDocRoot();
     std::string getName();
 
-
 private:
     void serverListen();
 
