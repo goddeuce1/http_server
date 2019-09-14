@@ -90,8 +90,6 @@ void HTTPResponse::writeToClient() {
                     std::cout << error.message() << " || " << error.value() << " || " << response_code << std::endl;
                     return;
                 }
-
-                std::cout << "bytes transferred: " << bytes_transferred << std::endl;
             }
     );
 }
