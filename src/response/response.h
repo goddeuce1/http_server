@@ -13,7 +13,7 @@
 class HTTPResponse : public std::enable_shared_from_this<HTTPResponse>  {
 public:
     explicit HTTPResponse(std::shared_ptr<HTTPRequest>);
-    //~HTTPResponse();
+    ~HTTPResponse() = default;
     void startProcessing();
     void processMethod();
     void processUnknownMethod();

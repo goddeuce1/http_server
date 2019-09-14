@@ -14,11 +14,10 @@
 class HTTPConfig {
 public:
     HTTPConfig();
-    ~HTTPConfig();
+    ~HTTPConfig() = default;
     void parseConfig();
 
 public:
-    std::string getPath();
     std::string getDocumentRoot();
     size_t getCPULimit();
     size_t getThreadLimit();

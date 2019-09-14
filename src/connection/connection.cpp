@@ -4,6 +4,7 @@
 
 #include "connection.h"
 #include "../request/request.h"
+#include "../response/response.h"
 #include <iostream>
 #include "boost/bind.hpp"
 
@@ -12,6 +13,15 @@ HTTPConnection::HTTPConnection(boost::asio::io_service& io_service, std::shared_
     socket_(io_service),
     server_(std::move(server))
     {};
+
+HTTPConnection::~HTTPConnection() {
+    stopProcessing();
+}
+
+void HTTPConnection::stopProcessing() {
+    socket_.cancel();
+    socket_.close();
+}
 
 void HTTPConnection::startProcessing() {
     socket_.non_blocking(true);
@@ -28,8 +38,14 @@ void HTTPConnection::startProcessing() {
 }
 
 void HTTPConnection::readHandler(boost::system::error_code error, size_t bytes_transferred) {
-    if (error || bytes_transferred == 0) {
-        //std::cout << error.message() << " " << error.value() << " (empty lines/without to newlines)" << std::endl;
+    if (error) {
+
+        if (bytes_transferred == 0) {
+            return;
+        }
+
+        std::cout << error.message() << " " << error.value() << std::endl;
+        return;
     } else {
         std::string data = boost::asio::buffer_cast<const char *>(buf.data());
         auto request = std::make_shared<HTTPRequest>(shared_from_this());

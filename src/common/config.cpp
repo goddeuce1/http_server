@@ -12,8 +12,6 @@ HTTPConfig::HTTPConfig() {
     port = 80;
 }
 
-HTTPConfig::~HTTPConfig() = default;
-
 void HTTPConfig::parseConfig() {
     std::ifstream cfg_file(cfg_path);
     std::string line;
@@ -40,10 +38,6 @@ void HTTPConfig::parseConfig() {
         }
     }
 
-}
-
-std::string HTTPConfig::getPath() {
-    return cfg_path;
 }
 
 std::string HTTPConfig::getDocumentRoot() {

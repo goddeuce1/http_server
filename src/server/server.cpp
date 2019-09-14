@@ -20,6 +20,17 @@ HTTPServer::HTTPServer(HTTPConfig *cfg) :
     thread_limit = cfg->getThreadLimit();
 
     server_name = "gdinx v1.0.0";
+
+    std::cout << "server is up\n";
+}
+
+HTTPServer::~HTTPServer() {
+    serverStop();
+}
+
+void HTTPServer::serverStop() {
+    acceptor_.cancel();
+    acceptor_.close();
 }
 
 void HTTPServer::serverStart() {
@@ -39,7 +50,7 @@ void HTTPServer::serverListen() {
                     if (!error) {
                         new_connection->startProcessing();
                     } else {
-                        std::cout << error.message() << " " << error.value() << std::endl;
+                        std::cout << "Failed to accept new connection: " << error.message() << " " << error.value() << std::endl;
                     }
                     serverListen();
             }

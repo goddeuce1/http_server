@@ -31,9 +31,7 @@ void HTTPRequest::parseRequest(std::string request) {
 
     do {
         size_t newline_position = request.find_first_of('\n', i);
-        std::string request_body;
-
-        request_body = request.substr(i, newline_position - i - 1);
+        std::string request_body = request.substr(i, newline_position - i - 1);
 
         std::smatch match;
 
@@ -103,10 +101,6 @@ std::string HTTPRequest::decodeUrl(std::string input) {
 
 std::shared_ptr<HTTPConnection> HTTPRequest::getConnection() {
     return connection_;
-}
-
-std::unordered_map<std::string, std::string> HTTPRequest::getHeaders() {
-    return request_headers;
 }
 
 std::string HTTPRequest::getMethod() {

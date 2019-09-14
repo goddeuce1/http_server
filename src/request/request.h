@@ -16,13 +16,12 @@
 class HTTPRequest : public std::enable_shared_from_this<HTTPRequest> {
 public:
     explicit HTTPRequest(std::shared_ptr<HTTPConnection>);
-    //~HTTPRequest();
+    ~HTTPRequest() = default;
     void parseRequest(std::string);
     static std::string decodeUrl(std::string);
 
 public:
     std::shared_ptr<HTTPConnection> getConnection();
-    std::unordered_map<std::string, std::string> getHeaders();
     std::string getMethod();
     std::string getPath();
     std::string getFile();

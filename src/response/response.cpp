@@ -88,7 +88,9 @@ void HTTPResponse::writeToClient() {
             [this](const boost::system::error_code& error, size_t bytes_transferred) {
                 if (error) {
                     std::cout << error.message() << " || " << error.value() << " || " << response_code << std::endl;
+                    return;
                 }
+
                 std::cout << "bytes transferred: " << bytes_transferred << std::endl;
                 is_sent = true;
             }

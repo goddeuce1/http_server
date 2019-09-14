@@ -15,9 +15,9 @@
 class HTTPServer : public std::enable_shared_from_this<HTTPServer> {
 public:
     explicit HTTPServer(HTTPConfig* cfg);
-    //~HTTPServer();
+    ~HTTPServer();
     void serverStart();
-    //void serverStop();
+    void serverStop();
 
 public:
     std::string getDocRoot();
