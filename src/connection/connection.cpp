@@ -9,8 +9,8 @@
 #include "boost/bind.hpp"
 
 
-HTTPConnection::HTTPConnection(boost::asio::io_service& io_service, std::shared_ptr<HTTPServer> server) :
-    socket_(io_service),
+HTTPConnection::HTTPConnection(boost::asio::ip::tcp::socket socket, std::shared_ptr<HTTPServer> server) :
+    socket_(std::move(socket)),
     server_(std::move(server))
     {};
 

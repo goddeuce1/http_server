@@ -13,7 +13,8 @@ HTTPServer::HTTPServer(HTTPConfig *cfg) :
             boost::asio::ip::tcp::endpoint(
                     boost::asio::ip::tcp::v4(),
                     cfg->getPort()
-                    ))
+                    )),
+                    socket_(io_service_)
 {
     document_root = cfg->getDocumentRoot();
     cpu_limit = cfg->getCPULimit();
@@ -41,15 +42,16 @@ void HTTPServer::serverStart() {
 }
 
 void HTTPServer::serverListen() {
-    auto new_connection = std::make_shared<HTTPConnection>(io_service_, shared_from_this());
     acceptor_.async_accept(
-            new_connection->getSocket(),
-            [this, new_connection](boost::system::error_code error) {
+            socket_,
+            [this](boost::system::error_code error) {
                     if (!error) {
+                        auto new_connection = std::make_shared<HTTPConnection>(std::move(socket_), shared_from_this());
                         new_connection->startProcessing();
                     } else {
                         std::cout << "Failed to accept new connection: " << error.message() << " " << error.value() << std::endl;
                     }
+
                     serverListen();
             }
     );
