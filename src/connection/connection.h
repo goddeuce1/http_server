@@ -15,7 +15,7 @@
 
 class HTTPConnection : public std::enable_shared_from_this<HTTPConnection> {
 public:
-    explicit HTTPConnection(boost::asio::ip::tcp::socket, std::shared_ptr<HTTPServer>);
+    explicit HTTPConnection(boost::asio::io_service&, std::shared_ptr<HTTPServer>);
     ~HTTPConnection();
     void startProcessing();
     void stopProcessing();

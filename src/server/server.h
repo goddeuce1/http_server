@@ -28,7 +28,6 @@ private:
 
 private:
     boost::asio::io_service io_service_;
-    boost::asio::ip::tcp::socket socket_;
     boost::asio::ip::tcp::acceptor acceptor_;
     boost::thread_group thread_group_;
     std::string document_root;
