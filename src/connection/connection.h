@@ -2,9 +2,10 @@
 // Created by gd1 on 07.09.2019.
 //
 
-#pragma once
+#define MAX_READ_BUFFER_SIZE 1024
 
-#include "../server/server.h"
+#include "../request/request.h"
+#include "../response/response.h"
 #include "boost/asio.hpp"
 #include <boost/array.hpp>
 
@@ -15,18 +16,27 @@
 
 class HTTPConnection : public std::enable_shared_from_this<HTTPConnection> {
 public:
-    explicit HTTPConnection(boost::asio::io_service&, std::shared_ptr<HTTPServer>);
+    explicit HTTPConnection(boost::asio::io_service&, std::string&);
     ~HTTPConnection();
     void startProcessing();
-    void stopProcessing();
-    void readHandler(boost::system::error_code, size_t);
-
-public:
-    boost::asio::ip::tcp::socket& getSocket();
-    std::shared_ptr<HTTPServer> getServer();
+    boost::asio::ip::tcp::socket& getSocket() {return socket_;};
 
 private:
-    std::shared_ptr<HTTPServer> server_;
+    void stopProcessing();
+    void readHandler(boost::system::error_code, size_t);
+    void writeHandler(std::string& buf, std::shared_ptr<HTTPConnection>&);
+
+private:
     boost::asio::ip::tcp::socket socket_;
-    boost::asio::streambuf buf;
+    boost::array<char, MAX_READ_BUFFER_SIZE> buffer_;
+    std::shared_ptr<HTTPRequest> request_;
+    std::shared_ptr<HTTPResponse> response_;
+
+private:
+    std::string document_root_;
+    std::string method_;
+    std::string uri_;
+    std::string response_buffer;
+    char version_;
+    std::vector<header> headers_;
 };

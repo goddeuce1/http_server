@@ -3,15 +3,15 @@
 //
 
 #include "connection.h"
-#include "../request/request.h"
-#include "../response/response.h"
-#include <iostream>
 #include "boost/bind.hpp"
+#include <iostream>
+#include <thread>
 
-
-HTTPConnection::HTTPConnection(boost::asio::io_service& io_service, std::shared_ptr<HTTPServer> server) :
+HTTPConnection::HTTPConnection(boost::asio::io_service& io_service, std::string& root) :
     socket_(io_service),
-    server_(std::move(server))
+    document_root_(root),
+    buffer_(),
+    version_()
     {};
 
 HTTPConnection::~HTTPConnection() {
@@ -24,11 +24,8 @@ void HTTPConnection::stopProcessing() {
 }
 
 void HTTPConnection::startProcessing() {
-    socket_.non_blocking(true);
-    boost::asio::async_read_until(
-            socket_,
-            buf,
-            "\r\n\r\n",
+        socket_.async_read_some(
+            boost::asio::buffer(buffer_),
             boost::bind(
                     &HTTPConnection::readHandler,
                     shared_from_this(),
@@ -44,19 +41,30 @@ void HTTPConnection::readHandler(boost::system::error_code error, size_t bytes_t
             return;
         }
 
-        std::cout << error.message() << " " << error.value() << std::endl;
+        std::cout << error.message() << " || " << error.value() << " || " << std::endl;
         return;
     } else {
-        std::string data = boost::asio::buffer_cast<const char *>(buf.data());
-        auto request = std::make_shared<HTTPRequest>(shared_from_this());
-        request->parseRequest(data);
+
+        bool ok = request_->parseRequest(buffer_.elems, method_, uri_, version_, headers_);
+
+        if (ok) {
+            response_buffer = response_->startProcessing(method_, document_root_, uri_, version_);
+            auto self_ptr = shared_from_this();
+            writeHandler(response_buffer, self_ptr);
+        } else {
+            return;
+        }
     }
 }
 
-boost::asio::ip::tcp::socket& HTTPConnection::getSocket() {
-    return socket_;
-}
-
-std::shared_ptr<HTTPServer> HTTPConnection::getServer() {
-    return server_;
+void HTTPConnection::writeHandler(std::string& buf, std::shared_ptr<HTTPConnection>& self) {
+    boost::asio::async_write(
+            socket_,
+            boost::asio::buffer(buf),
+            [self](const boost::system::error_code& error, size_t bytes_transferred) {
+                if (error) {
+                    std::cout << error.message() << " || " << error.value() << " || " << std::endl;
+                }
+            }
+    );
 }
