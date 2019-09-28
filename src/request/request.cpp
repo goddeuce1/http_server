@@ -2,111 +2,189 @@
 // Created by gd1 on 08.09.2019.
 //
 
+#define STAGE_METHOD 0
+#define STAGE_SLASH 1
+#define STAGE_URI 2
+#define STAGE_HTTP 3
+#define STAGE_HTTP_VERSION 4
+#define STAGE_R 5
+#define STAGE_N 6
+#define STAGE_HEADER_KEY 7
+#define STAGE_HEADER_DELIM 8
+#define STAGE_HEADER_VALUE 9
+
 #include "request.h"
-#include "../response/response.h"
 #include <regex>
 #include <chrono>
 #include <thread>
 
-HTTPRequest::HTTPRequest(std::shared_ptr<HTTPConnection> connection) :
-connection_(std::move(connection))
-{
-    request_method = "";
-    request_path = "";
-    request_version = "";
-}
+bool HTTPRequest::parseRequest(char* request, std::string& method, std::string& uri, char& version, std::vector<header>& headers) {
+    size_t i = STAGE_METHOD, j = 0; // go to method phase
+    header tmp_struct{"", ""};
 
-void HTTPRequest::parseRequest(std::string request) {
-    std::regex reg_body(R"(^(\w+)\s(\/((\S+\/)*)?)((\S+)|(\%\w{2})*)?((\?)((\S+\=\S+(\&)?)*))?\s(HTTP\/1\.[01])$)", std::regex_constants::icase | std::regex_constants::ECMAScript);
-    std::regex reg_param(R"(^(\S+)\:\s(\S+)$)", std::regex_constants::icase | std::regex_constants::ECMAScript);
-
-    size_t i = 0;
-    request_path = connection_->getServer()->getDocRoot();
-
-    do {
-        size_t newline_position = request.find_first_of('\n', i);
-        std::string request_body = request.substr(i, newline_position - i - 1);
-
-        std::smatch match;
-
-        if (std::regex_match(request_body, match, reg_body)) {
-            request_method = match[1];
-            request_path += match[2];
-            request_file = match[6];
-            request_version = match[13];
-        }
-
-        if (std::regex_match(request_body, match, reg_param)) {
-            request_headers[match[1]] = match[2];
-        }
-
-        i = newline_position + 1;
-
-    } while (request[i] != '\r');
-
-    size_t args_pos = request_file.find_first_of('?');
-
-    if (args_pos != std::string::npos) {
-        request_file = request_file.substr(0, args_pos);
-    }
-
-    if (!request_file.empty()) {
-        request_file = decodeUrl(request_file);
-    } else {
-        request_file = "index.html";
-    }
-
-    auto response = std::make_shared<HTTPResponse>(shared_from_this());
-    response->startProcessing();
-}
-
-std::string HTTPRequest::decodeUrl(std::string input) {
-    std::string result;
-
-    for (std::size_t i = 0; i < input.size(); ++i) {
-        if (input[i] == '%') {
-
-            if (i + 3 <= input.size()) {
-                int value = 0;
-                std::istringstream is(input.substr(i + 1, 2));
-
-                if (is >> std::hex >> value) {
-                    result += static_cast<char>(value);
-                    i += 2;
+    while (request[j] != '\0') {
+        switch (i) {
+            case STAGE_METHOD: {
+                if (isLetter(request[j])) {
+                    method.push_back(request[j++]);
+                } else if (request[j] == ' ') {
+                    ++j;
+                    i = STAGE_SLASH; // go to '/' phase
                 } else {
-                    return result;
+                    return false;
                 }
-
-            } else {
-                return result;
+                    break;
             }
 
-        } else if (input[i] == '+') {
-            result += ' ';
+            case STAGE_SLASH: {
+                if (request[j] == '/') {
+                    uri.push_back(request[j++]);
+                    i = STAGE_URI; // go to uri phase
+                } else {
+                    return false;
+                }
+                break;
+            }
 
-        } else {
-            result += input[i];
+            case STAGE_URI: {
+                if (isLetter(request[j]) || isAllowedSymbol(request[j]) || isDigit(request[j])) {
+                    uri.push_back(request[j++]);
+                } else if (request[j] == '%' || request[j] == '+') {
+                    uri.push_back(decodeChar(request, j));
+                    j += 3;
+                } else if (request[j] == ' ') {
+                    ++j;
+                    i = STAGE_HTTP; // go to http/ phase
+                }
+                break;
+            }
+
+            case STAGE_HTTP: {
+                if (isHttpSlash(request, j)) {
+                    j += 5;
+                    i = STAGE_HTTP_VERSION; // go to http 1.[0 or 1] phase
+                } else {
+                    return false;
+                }
+                break;
+            };
+
+            case STAGE_HTTP_VERSION: {
+                if (isDigit(request[j]) && request[j + 1] == '.' && isDigit(request[j + 2])) {
+                    version = request[2 + j];
+                    j += 3;
+                    i = STAGE_R; // go to \r phase
+                } else {
+                    return false;
+                }
+                break;
+            }
+
+            case STAGE_R: {
+                if (request[j] == '\r') {
+                    ++j;
+                    i = STAGE_N; // go to \n phase
+                } else {
+                    return false;
+                }
+                break;
+            }
+
+            case STAGE_N: {
+                if (request[j] == '\n') {
+                    if (request[j + 1] == '\0') {
+                        if (request[j - 2] == '\n') {
+                            ++j;
+                        } else {
+                            return false;
+                        }
+                    } else if (request[j + 1] == '\r') {
+                        i = STAGE_R; // go to \r phase
+                    } else {
+                        i = STAGE_HEADER_KEY; // go to header key phase
+                    }
+                    ++j;
+                } else {
+                    return false;
+                }
+                break;
+            }
+
+            case STAGE_HEADER_KEY: {
+                if (isLetter(request[j]) || request[j] == '-' || isDigit(request[j])) {
+                    tmp_struct.key.push_back(request[j++]);
+                    if (request[j] == ':') {
+                        i = STAGE_HEADER_DELIM; // go to : and space phase
+                    }
+                } else {
+                    return false;
+                }
+                break;
+            }
+
+            case STAGE_HEADER_DELIM: {
+                if (request[j] == ':' && request[j + 1] == ' ') {
+                    j += 2;
+                    i = STAGE_HEADER_VALUE; //go to header value phase
+                } else {
+                    return false;
+                }
+                break;
+            }
+
+            case STAGE_HEADER_VALUE: {
+                tmp_struct.value.push_back(request[j++]);
+
+                if (request[j] == '\r') {
+                    headers.push_back(tmp_struct);
+
+                    tmp_struct.key = "";
+                    tmp_struct.value = "";
+
+                    i = STAGE_R; // go to \r phase
+                }
+                break;
+            }
         }
     }
-    return result;
+
+    return true;
 }
 
-std::shared_ptr<HTTPConnection> HTTPRequest::getConnection() {
-    return connection_;
+bool HTTPRequest::isLetter(char& c) {
+    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
 }
 
-std::string HTTPRequest::getMethod() {
-    return request_method;
+bool HTTPRequest::isDigit(char& c) {
+    return (c >= '0' && c <= '9');
 }
 
-std::string HTTPRequest::getPath() {
-    return request_path;
+bool HTTPRequest::isAllowedSymbol(char& c) {
+    return (c == '.' || c == '/' || c == '?' || c == '&' || c == '=' || c == '_' || c == '-');
 }
 
-std::string HTTPRequest::getFile() {
-    return request_file;
+bool HTTPRequest::isHttpSlash(const char* request, size_t& i) {
+    return (
+            request[i] == 'H' &&
+            request[i + 1] == 'T' &&
+            request[i + 2] == 'T' &&
+            request[i + 3] == 'P' &&
+            request[i + 4] == '/'
+    );
 }
 
-std::string HTTPRequest::getVersion() {
-    return request_version;
+char HTTPRequest::decodeChar(const char * request, size_t& i) {
+    if (request[i] == '%') {
+        char str[3];
+        memcpy(str, &request[i + 1], 2);
+
+        std::stringstream ss;
+        ss << std::hex << str;
+        size_t ch = 0;
+        ss >> ch;
+
+        return static_cast<char>(ch);
+    } else if (request[i] == '+') {
+        return ' ';
+    }
 }
