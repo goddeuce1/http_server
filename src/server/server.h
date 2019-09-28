@@ -1,7 +1,6 @@
 //
 // Created by gd1 on 07.09.2019.
 //
-#pragma once
 
 #ifndef HTTP_SERVER_SERVER_H
 #define HTTP_SERVER_SERVER_H
@@ -9,6 +8,7 @@
 #endif //HTTP_SERVER_SERVER_H
 
 #include "../common/config.h"
+#include "../connection/connection.h"
 #include "boost/asio.hpp"
 #include "boost/thread.hpp"
 
@@ -17,21 +17,18 @@ public:
     explicit HTTPServer(HTTPConfig* cfg);
     ~HTTPServer();
     void serverStart();
-    void serverStop();
-
-public:
-    std::string getDocRoot();
-    std::string getName();
 
 private:
     void serverListen();
+    void serverStop();
+    void listenHandler(boost::system::error_code);
 
 private:
     boost::asio::io_service io_service_;
     boost::asio::ip::tcp::acceptor acceptor_;
     boost::thread_group thread_group_;
+    std::shared_ptr<HTTPConnection> connection_;
     std::string document_root;
-    std::string server_name;
     size_t cpu_limit;
     size_t thread_limit;
 };

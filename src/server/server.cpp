@@ -3,7 +3,6 @@
 //
 
 #include "server.h"
-#include "../connection/connection.h"
 #include "boost/bind.hpp"
 #include <thread>
 
@@ -13,13 +12,17 @@ HTTPServer::HTTPServer(HTTPConfig *cfg) :
             boost::asio::ip::tcp::endpoint(
                     boost::asio::ip::tcp::v4(),
                     cfg->getPort()
-                    ))
+                    )),
+                    connection_()
 {
     document_root = cfg->getDocumentRoot();
     cpu_limit = cfg->getCPULimit();
     thread_limit = cfg->getThreadLimit();
 
-    server_name = "gdinx v1.0.0";
+    acceptor_.set_option(boost::asio::ip::tcp::acceptor::reuse_address(true));
+    acceptor_.listen();
+
+    serverListen();
 }
 
 HTTPServer::~HTTPServer() {
@@ -32,33 +35,30 @@ void HTTPServer::serverStop() {
 }
 
 void HTTPServer::serverStart() {
-    for (size_t i = 0; i < cpu_limit; ++i) {
+    for (size_t i = 0; i < thread_limit; ++i) {
         thread_group_.create_thread(boost::bind(&boost::asio::io_service::run, &io_service_));
-        io_service_.post(boost::bind(&HTTPServer::serverListen, this));
     }
 
     thread_group_.join_all();
 }
 
 void HTTPServer::serverListen() {
-    auto new_connection = std::make_shared<HTTPConnection>(io_service_, shared_from_this());
+    connection_.reset(new HTTPConnection(io_service_, document_root));
     acceptor_.async_accept(
-            new_connection->getSocket(),
-            [this, new_connection](boost::system::error_code error) {
-                    if (!error) {
-                        new_connection->startProcessing();
-                    } else {
-                        std::cout << "Failed to accept new connection: " << error.message() << " " << error.value() << std::endl;
-                    }
-                    serverListen();
-            }
+            connection_->getSocket(),
+            boost::bind(&HTTPServer::listenHandler,
+                    this,
+                    boost::asio::placeholders::error
+                    )
     );
 }
 
-std::string HTTPServer::getDocRoot() {
-    return document_root;
-}
+void HTTPServer::listenHandler(boost::system::error_code error) {
+    if (!error) {
+        connection_->startProcessing();
+    } else {
+        std::cout << "Failed to accept new connection: " << error.message() << " " << error.value() << std::endl;
+    }
 
-std::string HTTPServer::getName() {
-    return server_name;
+    serverListen(); // not a recursion!
 }
