@@ -1,9 +1,12 @@
 //
 // Created by gd1 on 11.09.2019.
 //
-#pragma once
 
-#include "../request/request.h"
+#include "../common/header.h"
+#include "boost/asio.hpp"
+#include <vector>
+#include <iostream>
+#include <unordered_map>
 
 #ifndef HTTP_SERVER_RESPONSE_H
 #define HTTP_SERVER_RESPONSE_H
@@ -12,25 +15,15 @@
 
 class HTTPResponse : public std::enable_shared_from_this<HTTPResponse>  {
 public:
-    explicit HTTPResponse(std::shared_ptr<HTTPRequest>);
+    explicit HTTPResponse() = default;
     ~HTTPResponse() = default;
-    void startProcessing();
-    void processMethod();
-    void processUnknownMethod();
+    static std::string startProcessing(std::string&, std::string&, std::string&, char&);
+    static std::string processMethod(std::string&, std::string&, std::string&, char&, std::vector<header>& headers);
+    static std::string processUnknownMethod();
+    static void initHeaders(std::vector<header>&);
+    static void writeHeaders(std::string&, std::string&, std::string&, std::string&, std::vector<header>&);
 
 public:
     static std::string getDate();
     static std::string getContentType(std::string&);
-
-private:
-    void writeHeaders(std::string&, std::string&);
-    void writeToClient();
-    void sendFile();
-
-private:
-    std::shared_ptr<HTTPRequest> request_;
-    std::string response_code;
-    std::unordered_map<std::string, std::string> response_headers;
-    std::ostream ostream_to_buffer;
-    boost::asio::streambuf response_buffer;
 };

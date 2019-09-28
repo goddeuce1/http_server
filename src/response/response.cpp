@@ -2,101 +2,107 @@
 // Created by gd1 on 11.09.2019.
 //
 
+#define MAX_FILE_BUFFER_SIZE 1024
+#define MAX_TIME_BUFFER_SIZE 256
+
 #include "response.h"
 #include "boost/filesystem.hpp"
+#include <mutex>
 
-HTTPResponse::HTTPResponse(std::shared_ptr<HTTPRequest> request) :
-    request_(std::move(request)),
-    ostream_to_buffer(&response_buffer)
-    {
-        response_headers["Server"] = request_->getConnection()->getServer()->getName();
-        response_headers["Date"] = getDate();
-        response_headers["Connection"] = "Closed";
-    }
+std::string HTTPResponse::startProcessing(std::string &method, std::string& document_root, std::string &uri, char &version) {
+    std::string response_buffer = "HTTP/1.";
+    response_buffer.push_back(version);
+    response_buffer.push_back(' ');
 
-void HTTPResponse::startProcessing() {
-    std::string method = request_->getMethod();
+    std::vector<header> headers;
+    initHeaders(headers);
+
+    std::string response_code;
 
     if (method == "GET" || method == "HEAD") {
-        processMethod();
+        response_code = processMethod(method, document_root, uri, version, headers);
     } else {
-        processUnknownMethod();
+        response_code = processUnknownMethod();
     }
 
-    writeHeaders(method,response_code);
+    response_buffer += response_code + "\r\n";
+    writeHeaders(method, response_code, uri, response_buffer, headers);
+
+    return response_buffer;
 }
 
-void HTTPResponse::processMethod() {
-    std::string file_path = request_->getPath();
-    std::string file_name = request_->getFile();
+std::string HTTPResponse::processMethod(std::string &method, std::string& document_root, std::string &uri, char &version, std::vector<header>& headers) {
+    std::string full_path = document_root + uri;
 
-    size_t escape_index = file_path.find("../");
+    size_t last_slash_index = uri.find_last_of('/');
 
-    if (boost::filesystem::exists(file_path + file_name) && escape_index == std::string::npos) {
-        size_t dot_position = file_name.find_last_of('.');
-        std::string file_extension = file_name.substr(dot_position + 1, file_name.length() - dot_position);
+    if (last_slash_index == uri.length() - 1) {
+        full_path += "index.html";
+    }
+
+    size_t query_index = full_path.find('?');
+
+    if (query_index != std::string::npos) {
+        full_path = full_path.substr(0, query_index);
+    }
+
+    size_t escape_index = uri.find("../");
+
+    if (boost::filesystem::exists(full_path) && escape_index == std::string::npos) {
+        size_t dot_position = full_path.find_last_of('.');
+        std::string file_extension = full_path.substr(dot_position + 1, full_path.length() - dot_position);
         std::string content_type = getContentType(file_extension);
 
-        response_headers["Content-Type"] = content_type;
-        response_headers["Content-Length"] = std::to_string(boost::filesystem::file_size(file_path + file_name));
-        response_code = "200 OK";
+        headers.push_back(header {"Content-Type", content_type});
+        headers.push_back(header {"Content-Length", std::to_string(boost::filesystem::file_size(full_path))});
 
-        return;
-    } else if (escape_index != std::string::npos || file_name == "index.html") {
-        response_code = "403 Forbidden";
-        return;
+        uri = full_path;
+        return "200 OK";
+    } else if (escape_index != std::string::npos || (last_slash_index == uri.length() - 1)) {
+        return "403 Forbidden";
     }
 
-    response_code = "404 Not Found";
+    return "404 Not Found";
 }
 
-void HTTPResponse::processUnknownMethod() {
-    response_code = "405 Method Not Allowed";
+std::string HTTPResponse::processUnknownMethod() {
+    return "405 Method Not Allowed";
 }
 
-void HTTPResponse::writeHeaders(std::string& method, std::string& code) {
-    ostream_to_buffer << request_->getVersion() << " " << response_code << "\r\n";
+void HTTPResponse::initHeaders(std::vector<header>& headers) {
+    headers.push_back(header {"Server", "gdinx v.1.0.1"});
+    headers.push_back(header {"Date", getDate()});
+    headers.push_back(header {"Connection", "Closed"});
+}
 
-    for (auto& header: response_headers) {
-        ostream_to_buffer << header.first << ": " << header.second << "\r\n";
+void HTTPResponse::writeHeaders(std::string& method, std::string& code, std::string& path, std::string& response_buffer, std::vector<header>& headers) {
+    for (auto& header : headers) {
+        response_buffer += header.key + ": " + header.value + "\r\n";
     }
 
     if (method == "HEAD") {
-        ostream_to_buffer << "\r\n";
+        response_buffer += "\r\n";
     }
 
     if (method == "GET" && code == "200 OK") {
-        ostream_to_buffer << "\r\n";
-        sendFile();
+        response_buffer += "\r\n";
+
+        std::mutex mu;
+
+        mu.lock();
+        std::ifstream file(path.c_str(), std::ios::in | std::ios::binary);
+        char file_buffer[MAX_FILE_BUFFER_SIZE];
+
+        while (file.read(file_buffer, sizeof(file_buffer)).gcount() > 0) {
+            response_buffer.append(file_buffer, file.gcount());
+        }
+        mu.unlock();
     }
-
-    writeToClient();
-}
-
-void HTTPResponse::sendFile() {
-    std::ifstream file(request_->getPath() + request_->getFile(), std::ios_base::binary);
-    std::vector<unsigned char> buffer(std::istreambuf_iterator<char>(file), {});
-    std::copy(buffer.cbegin(), buffer.cend(), std::ostreambuf_iterator<char>(ostream_to_buffer));
-}
-
-void HTTPResponse::writeToClient() {
-    auto self = shared_from_this();
-
-    boost::asio::async_write(
-            request_->getConnection()->getSocket(),
-            response_buffer,
-            [this, self](const boost::system::error_code& error, size_t bytes_transferred) {
-                if (error) {
-                    std::cout << error.message() << " || " << error.value() << " || " << response_code << std::endl;
-                    return;
-                }
-            }
-    );
 }
 
 std::string HTTPResponse::getDate() {
     std::time_t timer = std::time(nullptr);
-    char buffer_time[256];
+    char buffer_time[MAX_TIME_BUFFER_SIZE];
     auto time_now = std::strftime(buffer_time, sizeof(buffer_time), "%a, %d %b %Y %H:%M:%S GMT", std::localtime(&timer));
 
     return std::string(buffer_time, time_now);
